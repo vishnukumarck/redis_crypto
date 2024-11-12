@@ -1,5 +1,5 @@
 const express = require("express");
-const cors = require("cors");
+// const cors = require("cors");
 const morgan = require("morgan");
 const axios = require("axios");
 const redis = require("redis");
@@ -15,11 +15,11 @@ app.use(
   })
 );
 
-var corsOptions = {
-  origin: "http://localhost:3000",
-};
+// var corsOptions = {
+//   origin: "http://localhost:3000",
+// };
 
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));
 
 app.use(express.json());
 
@@ -57,19 +57,18 @@ const redisClient = redis.createClient({
   });
 
 app.get("/crypto_data_redis", async (req, res) => {
-  redisClient.get("cryptoData", (err, data) => {
-    console.log("data--->", data);
-    if (err) {
-      return res.status(500).json({ message: "Error retrieving data" });
-    }
+  try {
+    const data = await redisClient.get("cryptoData");
     if (data) {
-        console.log("getData!!!", data);
-        return res.json(JSON.parse(data));
-    //   return res.json(data);
+      console.log("getData!!!", data);
+      return res.json(JSON.parse(data));
     } else {
       return res.status(404).json({ message: "Data not found" });
     }
-  });
+  } catch (err) {
+    console.error("Error retrieving data:", err);
+    return res.status(500).json({ message: "Error retrieving data" });
+  }
 });
 
 const fetchCryptoData = async () => {
@@ -82,9 +81,8 @@ const fetchCryptoData = async () => {
       change24Hour: coin.RAW.USD.CHANGEPCT24HOUR,
     }));
     console.log("formattedData->>>", formattedData);
-    // redisClient.setex("cryptoData", 60, JSON.stringify(formattedData));
-    redisClient.set("cryptoData", JSON.stringify(formattedData), (err, reply) => {
-        console.log("redisClientReply!!!!!!!!", reply); 
+    await redisClient.set("cryptoData", JSON.stringify(formattedData), {
+      EX: 60, // expires in 60 seconds
     });
     console.log("Data updated in Redis");
   } catch (error) {
